@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/uber/prototool/internal/strs"
 	"go.uber.org/zap"
@@ -107,6 +108,39 @@ func (c *configProvider) GetExcludePrefixesForData(dirPath string, externalConfi
 		return nil, err
 	}
 	return getExcludePrefixes(externalConfig.Excludes, dirPath)
+}
+
+func (c *configProvider) GetWalkTimeoutForData(externalConfigData string) (time.Duration, error) {
+	var externalConfig ExternalConfig
+	if err := jsonUnmarshalStrict([]byte(externalConfigData), &externalConfig); err != nil {
+		return DefaultWalkTimeout, err
+	}
+	if externalConfig.WalkTimeoutS == 0 {
+		return DefaultWalkTimeout, nil
+	}
+	return externalConfig.WalkTimeoutS * time.Second, nil
+}
+
+func (c *configProvider) GetWalkTimeoutForDir(dirPath string) (time.Duration, error) {
+	if !filepath.IsAbs(dirPath) {
+		return DefaultWalkTimeout, fmt.Errorf("%s is not an absolute path", dirPath)
+	}
+	dirPath = filepath.Clean(dirPath)
+	filePath, err := getSingleFilePathForDir(dirPath)
+	if err != nil {
+		return DefaultWalkTimeout, err
+	}
+	if filePath == "" {
+		return DefaultWalkTimeout, nil
+	}
+	externalConfig, err := getExternalConfig(filePath)
+	if err != nil {
+		return DefaultWalkTimeout, err
+	}
+	if externalConfig.WalkTimeoutS == 0 {
+		return DefaultWalkTimeout, nil
+	}
+	return externalConfig.WalkTimeoutS * time.Second, nil
 }
 
 // getFilePathForDir tries to find a file named by one of the ConfigFilenames starting in the
@@ -335,6 +369,7 @@ func externalConfigToConfig(develMode bool, e ExternalConfig, dirPath string) (C
 	config := Config{
 		DirPath:         dirPath,
 		ExcludePrefixes: excludePrefixes,
+		WalkTimeoutS:    e.WalkTimeoutS,
 		Compile: CompileConfig{
 			ProtobufVersion:       e.Protoc.Version,
 			IncludePaths:          includePaths,

@@ -23,14 +23,10 @@ package file
 import (
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/uber/prototool/internal/settings"
 	"go.uber.org/zap"
 )
-
-// DefaultWalkTimeout is the default walk timeout.
-const DefaultWalkTimeout time.Duration = 3 * time.Second
 
 var rootDirPath = filepath.Dir(string(filepath.Separator))
 
@@ -114,17 +110,6 @@ func ProtoSetProviderWithDevelMode() ProtoSetProviderOption {
 func ProtoSetProviderWithConfigData(configData string) ProtoSetProviderOption {
 	return func(protoSetProvider *protoSetProvider) {
 		protoSetProvider.configData = configData
-	}
-}
-
-// ProtoSetProviderWithWalkTimeout returns a ProtoSetProviderOption will timeout after walking
-// a directory structure when searching for Protobuf files after the given amount of time.
-//
-// The default is to timeout after DefaultTimeoutDuration.
-// Set to 0 for no timeout.
-func ProtoSetProviderWithWalkTimeout(walkTimeout time.Duration) ProtoSetProviderOption {
-	return func(protoSetProvider *protoSetProvider) {
-		protoSetProvider.walkTimeout = walkTimeout
 	}
 }
 

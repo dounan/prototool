@@ -5,6 +5,8 @@ excludes:
   - path/to/a
   - path/to/b/file.proto
 
+walk_timeout_s: 1
+
 # Protoc directives.
 protoc:
   # The Protobuf version to use from https://github.com/protocolbuffers/protobuf/releases.

@@ -108,6 +108,10 @@ deps: $(BAZEL) $(GOLINT) $(ERRCHECK) $(STATICCHECK) $(UPDATE_LICENSE) $(CERTSTRA
 .PHONY: all
 all: lint cover bazeltest bazelbuild
 
+.PHONY: bins
+bins:
+	go build ./cmd/prototool
+
 .PHONY: install
 install:
 	go install ./cmd/prototool

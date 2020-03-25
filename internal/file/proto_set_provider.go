@@ -36,14 +36,12 @@ type protoSetProvider struct {
 	logger         *zap.Logger
 	develMode      bool
 	configData     string
-	walkTimeout    time.Duration
 	configProvider settings.ConfigProvider
 }
 
 func newProtoSetProvider(options ...ProtoSetProviderOption) *protoSetProvider {
 	protoSetProvider := &protoSetProvider{
-		logger:      zap.NewNop(),
-		walkTimeout: DefaultWalkTimeout,
+		logger: zap.NewNop(),
 	}
 	for _, option := range options {
 		option(protoSetProvider)
@@ -89,7 +87,7 @@ func (c *protoSetProvider) getMultipleForDir(workDirPath string, dirPath string)
 	if err != nil {
 		return nil, err
 	}
-	// If c.configData != ", the user has specified configuration via the command line.
+	// If c.configData != "", the user has specified configuration via the command line.
 	// Set the configuration directory to the current working directory.
 	configDirPath := workDirPath
 	if c.configData == "" {
@@ -217,6 +215,8 @@ func (c *protoSetProvider) walkAndGetAllProtoFiles(absWorkDirPath string, absDir
 	var timedOut bool
 	var excludes []string
 	var err error
+	var walkTimeout time.Duration = settings.DefaultWalkTimeout
+
 	// if we have a configData, we compute the exclude prefixes once
 	// from this dirPath and data, and do not do it again in the below walk function
 	if c.configData != "" {
@@ -224,7 +224,19 @@ func (c *protoSetProvider) walkAndGetAllProtoFiles(absWorkDirPath string, absDir
 		if err != nil {
 			return nil, err
 		}
+
+		walkTimeout, err = c.configProvider.GetWalkTimeoutForData(c.configData)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		walkTimeout, err = c.configProvider.GetWalkTimeoutForDir(absDirPath)
+		if err != nil {
+			return nil, err
+		}
 	}
+	c.logger.Debug("walking the directory structure", zap.Duration("walkTimeout", walkTimeout))
+
 	walkErrC := make(chan error)
 	go func() {
 		walkErrC <- filepath.Walk(
@@ -237,7 +249,7 @@ func (c *protoSetProvider) walkAndGetAllProtoFiles(absWorkDirPath string, absDir
 				if timedOut {
 					return fmt.Errorf("walking the directory structure looking for proto files "+
 						"timed out after %v and having seen %d files, are you sure you are operating "+
-						"in the right context?", c.walkTimeout, numWalkedFiles)
+						"in the right context?", walkTimeout, numWalkedFiles)
 				}
 				// Verify if we should skip this directory/file.
 				if fileInfo.IsDir() {
@@ -276,7 +288,7 @@ func (c *protoSetProvider) walkAndGetAllProtoFiles(absWorkDirPath string, absDir
 			},
 		)
 	}()
-	if c.walkTimeout == 0 {
+	if walkTimeout == 0 {
 		if walkErr := <-walkErrC; walkErr != nil {
 			return nil, walkErr
 		}
@@ -288,7 +300,7 @@ func (c *protoSetProvider) walkAndGetAllProtoFiles(absWorkDirPath string, absDir
 			return nil, walkErr
 		}
 		return protoFiles, nil
-	case <-time.After(c.walkTimeout):
+	case <-time.After(walkTimeout):
 		timedOut = true
 		if walkErr := <-walkErrC; walkErr != nil {
 			return nil, walkErr

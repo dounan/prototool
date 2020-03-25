@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -42,6 +43,8 @@ const (
 	// is or uses github.com/gogo/protobuf.
 	// This will use GenGoPluginOptions.
 	GenPluginTypeGogo
+	// DefaultWalkTimeout is the default walk timeout.
+	DefaultWalkTimeout time.Duration = 3 * time.Second
 )
 
 var (
@@ -129,6 +132,8 @@ type Config struct {
 	// if no config file exists.
 	// Expected to be absolute path.
 	DirPath string
+	// WalkTimeoutS is the configured walk timeout.
+	WalkTimeoutS time.Duration
 	// The prefixes to exclude.
 	// Expected to be absolute paths.
 	// Expected to be unique.
@@ -292,8 +297,9 @@ type OutputPath struct {
 //
 // It is meant to be set by a YAML or JSON config file, or flags.
 type ExternalConfig struct {
-	Excludes []string `json:"excludes,omitempty" yaml:"excludes,omitempty"`
-	Protoc   struct {
+	Excludes     []string      `json:"excludes,omitempty" yaml:"excludes,omitempty"`
+	WalkTimeoutS time.Duration `json:"walk_timeout_s,omitempty" yaml:"walk_timeout_s,omitempty"`
+	Protoc       struct {
 		AllowUnusedImports bool     `json:"allow_unused_imports,omitempty" yaml:"allow_unused_imports,omitempty"`
 		Version            string   `json:"version,omitempty" yaml:"version,omitempty"`
 		Includes           []string `json:"includes,omitempty" yaml:"includes,omitempty"`
@@ -390,6 +396,12 @@ type ConfigProvider interface {
 	// GetExcludePrefixesForData gets the exclude prefixes for the given ExternalConfigData in JSON format.
 	// The logic will act is if there was a configuration file at the given dirPath.
 	GetExcludePrefixesForData(dirPath string, externalConfigData string) ([]string, error)
+	// GetWalkTimeout returns the configured walk timeout as a time.Duration based on ExternalConfigData passed via
+	// command line.  If no walk timeout has been configured then this will return the value of DefaultWalkTimeout
+	GetWalkTimeoutForData(externalConfigData string) (time.Duration, error)
+	// GetWalkTimeout returns the configured walk timeout as a time.Duration based on a config file named by one of the
+	// ConfigFilenames starting in the given directory, and going up a directory until hitting root.
+	GetWalkTimeoutForDir(dirPath string) (time.Duration, error)
 }
 
 // ConfigProviderOption is an option for a new ConfigProvider.
